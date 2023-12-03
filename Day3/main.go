@@ -23,7 +23,7 @@ func main() {
 		adjacencyMatrix = append(adjacencyMatrix, make([]string, len(row)))
 	}
 }
-
+//TODO: I CAN USE A SLICE OF THE POINT IN EACH DIRECTION AND CHECK IF IT HAS DIGITS WITH A REGEX
 func findAdjacentNumbersToPoint(x int, y int, schematicsMatrix [][]string, adjacencyMatrix [][]string) {
 	var topLeft string
 	var topRight string
