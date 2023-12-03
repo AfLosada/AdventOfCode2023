@@ -18,12 +18,15 @@ func main() {
 	scanner := bufio.NewScanner(input)
 	possibleGames := make([]string, 0)
 	var idSum int
+	var powerSum int
 	for scanner.Scan() {
 		gameLine := scanner.Text()
 		gameId, boxCounterDictPerPlay, err := parseGameLine(gameLine)
 		if err != nil {
 			fmt.Printf(err.Error())
 		}
+		minimumBoxesPerColor := getMinNumberOfCubesPerColor(boxCounterDictPerPlay)
+		powerSum += calculatePowerOfSet(minimumBoxesPerColor)
 		if validateBoxCounterArray(boxCounterDictPerPlay, elfBag) {
 			possibleGames = append(possibleGames, gameId)
 			gameIdNumber, err := strconv.Atoi(gameId)
@@ -34,6 +37,27 @@ func main() {
 		}
 	}
 	fmt.Printf("The sum of the ids of the games is: %d\n", idSum)
+	fmt.Printf("The power of the possible sets is: %d\n", powerSum)
+}
+
+func calculatePowerOfSet(set map[string]int) int {
+	power := 1
+	for _, value := range set {
+		power *= value
+	}
+	return power
+}
+
+func getMinNumberOfCubesPerColor(boxCounterArray []map[string]int) map[string]int {
+	minNumberOfCubesPerColor := make(map[string]int)
+	for _, boxCounter := range boxCounterArray {
+		for color, amount := range boxCounter {
+			if minNumberOfCubesPerColor[color] < amount {
+				minNumberOfCubesPerColor[color] = amount
+			}
+		}
+	}
+	return minNumberOfCubesPerColor
 }
 
 func validateBoxCounterArray(boxCounterArray []map[string]int, elfBag map[string]int) bool {
