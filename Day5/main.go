@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strconv"
@@ -18,16 +19,14 @@ func main() {
 	scanner := bufio.NewScanner(input)
 	scanner.Scan()
 	seedRanges := strings.Fields(strings.Split(scanner.Text(), ":")[1])
-	seeds := windowed(seedRanges, 2)
-	mapOfMaps := map[string][]Range{
-		"seed2soil":            nil,
-		"soil2fertilizer":      nil,
-		"fertilizer2water":     nil,
-		"water2light":          nil,
-		"light2temperature":    nil,
-		"temperature2humidity": nil,
-		"humidity2location":    nil,
-	}
+	seeds := buildSeedsFromPairSlice(windowed(seedRanges, 2))
+	/*seeds := []SeedRange{
+	SeedRange{destinationStart: 79, length: 1},
+	SeedRange{destinationStart: 14, length: 1},
+	SeedRange{destinationStart: 55, length: 1},
+	SeedRange{destinationStart: 13, length: 1}}*/
+	mapOfMaps := map[string][]MapRange{}
+	mapDirection := map[string]string{}
 	mapOrder := []string{}
 	var currentMap string
 	for scanner.Scan() {
@@ -36,44 +35,68 @@ func main() {
 			continue
 		}
 		if strings.Contains(line, ":") {
-			currentMap = strings.Replace(strings.Split(line, " ")[0], "-to-", "2", 1)
+			mapNames := strings.Split(strings.Split(line, " ")[0], "-to-")
+			currentMap = mapNames[0]
+			mapDirection[currentMap] = mapNames[1]
 			mapOrder = append(mapOrder, currentMap)
 			continue
 		}
-		mapOfMaps[currentMap] = append(mapOfMaps[currentMap], parseLineToMap(line))
+		mapOfMaps[currentMap] = append(mapOfMaps[currentMap], parseLineToMap(line, currentMap))
 	}
 	locationList := []int{}
-
 	for _, seed := range seeds {
-		location := seed
-		for _, m := range mapOrder {
-			location = mapFromRanges(location, mapOfMaps[m])
-		}
-		locationList = append(locationList, location)
+		locationList = append(locationList, recursiveMapping(seed, mapOrder[0], mapDirection, mapOfMaps)...)
 	}
 	lowestLocation := slices.Min(locationList)
 	fmt.Printf("The lowest location number is: %d\n", lowestLocation)
 }
 
-type Range struct {
+type Range interface {
+	start() int
+	size() int
+}
+
+type MapRange struct {
 	destinationStart int
 	sourceStart      int
 	length           int
+	name             string
+}
+type SeedRange struct {
+	destinationStart int
+	length           int
 }
 
-func parseLineToMap(line string) Range {
+func (mR MapRange) start() int {
+	return mR.destinationStart
+}
+
+func (sR SeedRange) start() int {
+	return sR.destinationStart
+}
+
+func (mR MapRange) size() int {
+	return mR.length
+}
+
+func (sR SeedRange) size() int {
+	return sR.length
+}
+
+func parseLineToMap(line string, name string) MapRange {
 	splitLine := strings.Fields(line)
-	destinationStart, _ := strconv.Atoi(splitLine[0])
-	sourceStart, _ := strconv.Atoi(splitLine[1])
+	sourceStart, _ := strconv.Atoi(splitLine[0])
+	destinationStart, _ := strconv.Atoi(splitLine[1])
 	length, _ := strconv.Atoi(splitLine[2])
-	return Range{
+	return MapRange{
 		destinationStart: destinationStart,
 		sourceStart:      sourceStart,
 		length:           length,
+		name:             name,
 	}
 }
 
-func mapFromRanges(number int, ranges []Range) int {
+func mapFromRanges(number int, ranges []MapRange) int {
 	result := number
 	for _, r := range ranges {
 		result = mapFromRange(result, r)
@@ -84,7 +107,7 @@ func mapFromRanges(number int, ranges []Range) int {
 	return result
 }
 
-func mapFromRange(number int, r Range) int {
+func mapFromRange(number int, r MapRange) int {
 	inRange := (number >= r.sourceStart && number <= (r.sourceStart+r.length))
 	if !inRange {
 		return number
@@ -103,18 +126,73 @@ func windowed(slice []string, size int) [][]string {
 	return result
 }
 
-func buildSeedsFromPairSlice(sliceOfPairs [][]string) []int {
-	result := []int{}
+func buildSeedsFromPairSlice(sliceOfPairs [][]string) []SeedRange {
+	result := []SeedRange{}
 	for _, pair := range sliceOfPairs {
 		start, _ := strconv.Atoi(pair[0])
 		amount, _ := strconv.Atoi(pair[1])
-		for i := 0; i < amount; i++ {
-			result = append(result, start+i)
-		}
+		result = append(result, SeedRange{destinationStart: start, length: amount})
 	}
 	return result
 }
 
-func findMinOfIntersectionOfRanges(seedRange Range, mapRange Range){
-	
+func buildSeedRanges(sliceOfPairs [][]string) []SeedRange {
+	result := []SeedRange{}
+	for _, pair := range sliceOfPairs {
+		start, _ := strconv.Atoi(pair[0])
+		amount, _ := strconv.Atoi(pair[1])
+		result = append(result, SeedRange{destinationStart: start, length: amount})
+	}
+	return result
+}
+
+func recursiveMapping(r Range, mapName string, mapDirection map[string]string, mapOfMaps map[string][]MapRange) []int {
+	dir, ok := mapDirection[mapName]
+	if !ok {
+		return []int{r.start()}
+	}
+	containedRanges := []MapRange{}
+	for _, mr := range mapOfMaps[dir] {
+		containedRange := findContainedRange(r, mr)
+		if containedRange.size() == 0 {
+			continue
+		}
+		containedRangeDelta := int(math.Abs(float64(containedRange.start() - mr.destinationStart)))
+		containedRanges = append(
+			containedRanges,
+			MapRange{
+				destinationStart: containedRange.start(),
+				length:           containedRange.size(),
+				sourceStart:      mr.sourceStart + containedRangeDelta,
+				name:             mr.name})
+	}
+	locations := []int{}
+	for _, cr := range containedRanges {
+		sr := translateRangeToSourceRange(r, cr)
+		nextLocations := recursiveMapping(sr, mapDirection[mapName], mapDirection, mapOfMaps)
+		locations = append(locations, nextLocations...)
+	}
+	if len(containedRanges) == 0 {
+		locations = append(locations, recursiveMapping(r, mapDirection[mapName], mapDirection, mapOfMaps)...)
+	}
+	return locations
+}
+
+func findContainedRange(r1 Range, r2 Range) Range {
+	rMin := r1.start()
+	rMax := r1.start() + r1.size()
+	mRMin := r2.start()
+	mRMax := r2.start() + r2.size()
+	if rMin > mRMax || rMax < mRMin {
+		return SeedRange{}
+	}
+	maxMin := max(rMin, mRMin)
+	minMax := min(rMax, mRMax)
+	rangeDelta := minMax - maxMin
+
+	return SeedRange{destinationStart: maxMin, length: rangeDelta}
+}
+
+func translateRangeToSourceRange(r Range, mr MapRange) Range {
+	return SeedRange{destinationStart: mr.sourceStart, length: mr.length}
 }
