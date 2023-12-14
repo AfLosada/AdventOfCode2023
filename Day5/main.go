@@ -8,9 +8,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
+	defer timer("main")()
 	input, err := os.Open("./input.txt")
 	if err != nil {
 		panic(err)
@@ -20,11 +22,6 @@ func main() {
 	scanner.Scan()
 	seedRanges := strings.Fields(strings.Split(scanner.Text(), ":")[1])
 	seeds := buildSeedsFromPairSlice(windowed(seedRanges, 2))
-	/*seeds := []SeedRange{
-	SeedRange{destinationStart: 79, length: 1},
-	SeedRange{destinationStart: 14, length: 1},
-	SeedRange{destinationStart: 55, length: 1},
-	SeedRange{destinationStart: 13, length: 1}}*/
 	mapOfMaps := map[string][]MapRange{}
 	mapDirection := map[string]string{}
 	mapOrder := []string{}
@@ -49,6 +46,13 @@ func main() {
 	}
 	lowestLocation := slices.Min(locationList)
 	fmt.Printf("The lowest location number is: %d\n", lowestLocation)
+}
+
+func timer(name string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", name, time.Since(start))
+	}
 }
 
 type Range interface {
@@ -96,26 +100,6 @@ func parseLineToMap(line string, name string) MapRange {
 	}
 }
 
-func mapFromRanges(number int, ranges []MapRange) int {
-	result := number
-	for _, r := range ranges {
-		result = mapFromRange(result, r)
-		if result != number {
-			return result
-		}
-	}
-	return result
-}
-
-func mapFromRange(number int, r MapRange) int {
-	inRange := (number >= r.sourceStart && number <= (r.sourceStart+r.length))
-	if !inRange {
-		return number
-	}
-	positionInRange := r.sourceStart - number
-	return r.destinationStart + -positionInRange
-}
-
 func windowed(slice []string, size int) [][]string {
 	var result [][]string
 
@@ -127,16 +111,6 @@ func windowed(slice []string, size int) [][]string {
 }
 
 func buildSeedsFromPairSlice(sliceOfPairs [][]string) []SeedRange {
-	result := []SeedRange{}
-	for _, pair := range sliceOfPairs {
-		start, _ := strconv.Atoi(pair[0])
-		amount, _ := strconv.Atoi(pair[1])
-		result = append(result, SeedRange{destinationStart: start, length: amount})
-	}
-	return result
-}
-
-func buildSeedRanges(sliceOfPairs [][]string) []SeedRange {
 	result := []SeedRange{}
 	for _, pair := range sliceOfPairs {
 		start, _ := strconv.Atoi(pair[0])
