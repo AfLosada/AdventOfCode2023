@@ -6,9 +6,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func main() {
+	defer timer("main")()
 	input, err := os.Open("./input.txt")
 	if err != nil {
 		panic(err)
@@ -51,4 +53,11 @@ func calculateNumberOfWaysToBeat(maxTime int, maxDistance int) int {
 
 func calculateDistance(timePressing int, totalTime int) int {
 	return timePressing * (totalTime - timePressing)
+}
+
+func timer(name string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", name, time.Since(start))
+	}
 }
