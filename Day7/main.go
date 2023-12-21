@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
 
@@ -129,10 +130,8 @@ func findTypeFromMap(m map[rune]int) HandType {
 		switch value {
 		case 5:
 			hasFiveOfAKind = true
-			break
 		case 4:
 			hasFourOfAKind = true
-			break
 		case 3:
 			hasThreeOfAKind = true
 		case 2:
@@ -164,6 +163,19 @@ func (hand Hand) calculateLetterMap() map[rune]int {
 	for _, val := range hand.hand {
 		r := rune(val)
 		m[r]++
+	}
+	keys := maps.Keys(m)
+	if strings.Contains(hand.hand, "J") {
+		keys = slices.DeleteFunc(keys, func(a rune) bool {
+			return a == 'J'
+		})
+		if len(keys) > 0 {
+			mostRepeteadLetter := slices.MaxFunc(keys, func(a, b rune) int {
+				return cmp.Compare(m[a], m[b])
+			})
+			mostRepeatedLetterAmount := strings.Count(hand.hand, string("J"))
+			m[mostRepeteadLetter] += mostRepeatedLetterAmount
+		}
 	}
 	return m
 }
